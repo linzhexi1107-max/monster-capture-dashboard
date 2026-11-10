@@ -8,8 +8,8 @@
       content="怪物捕获消耗、RTP、参与人数与击杀率分析"
     />
     <title>怪物捕获分析</title>
-    <link rel="stylesheet" href="./styles.css?v=14" />
-    <script src="./app.js?v=14" type="module"></script>
+    <link rel="stylesheet" href="./styles.css?v=15" />
+    <script src="./app.js?v=15" type="module"></script>
   </head>
   <body>
     <div class="page-orbit orbit-one" aria-hidden="true"></div>
@@ -142,10 +142,10 @@
           <div class="chart-heading">
             <div>
               <p class="section-kicker">COST</p>
-              <h2>怪物消耗占比与当日总消耗价值</h2>
+              <h2>怪物消耗价值与当日总消耗价值</h2>
             </div>
             <div class="chart-legend" aria-label="图例">
-              <span>左轴：怪物消耗占比</span>
+              <span>左轴：怪物消耗价值（config_cost）</span>
               <span>右轴：当日总消耗价值 · T</span>
             </div>
           </div>
@@ -153,7 +153,23 @@
             class="chart-canvas"
             id="trendChart"
             role="img"
-            aria-label="按日期分别展示怪物消耗占比和当日总消耗价值双轴趋势"
+            aria-label="按日期分别展示怪物消耗价值和当日总消耗价值双轴趋势"
+          ></div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-heading">
+            <div>
+              <p class="section-kicker">COST SHARE</p>
+              <h2>怪物消耗占比</h2>
+            </div>
+            <span class="chart-unit">单位：百分比</span>
+          </div>
+          <div
+            class="chart-canvas"
+            id="costRatioChart"
+            role="img"
+            aria-label="按日期分别展示每个怪物的消耗占比"
           ></div>
         </article>
 

@@ -137,6 +137,7 @@ export function aggregateDailyByMonster(rows) {
       points: [...monster.byDate.values()]
         .map((day) => ({
           date: day.date,
+          config_cost: day.cost,
           config_cost_ratio: day.cost
             ? day.costRatioNumerator / day.cost
             : 0,

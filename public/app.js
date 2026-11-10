@@ -30,6 +30,7 @@ const elements = {
   yesterdayTop3Label: document.querySelector('#yesterdayTop3Label'),
   yesterdayTop3: document.querySelector('#yesterdayTop3'),
   trendChart: document.querySelector('#trendChart'),
+  costRatioChart: document.querySelector('#costRatioChart'),
   rtpChart: document.querySelector('#rtpChart'),
   userKillChart: document.querySelector('#userKillChart'),
   monsterKillChart: document.querySelector('#monsterKillChart'),
@@ -471,8 +472,7 @@ function renderDualAxisChart(container, data) {
   const plotHeight = height - padding.top - padding.bottom;
   const positions = xPositions(dates, padding.left, plotWidth);
   const primaryDomain = paddedDomain(
-    series.flatMap((item) => item.points.map((point) => point.config_cost_ratio)),
-    0.03,
+    series.flatMap((item) => item.points.map((point) => point.config_cost)),
   );
   const secondaryDomain = paddedDomain(
     dailyTotals.map((point) => point.daily_config_cost),
@@ -508,13 +508,13 @@ function renderDualAxisChart(container, data) {
 
   container.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" aria-hidden="true">
-      <text class="chart-axis-caption axis-primary" x="${padding.left}" y="14">怪物消耗占比 · ${series.length} 条曲线</text>
-      <text class="chart-axis-caption axis-secondary" x="${width - padding.right}" y="14" text-anchor="end">当日总消耗价值</text>
+      <text class="chart-axis-caption axis-primary" x="${padding.left}" y="14">怪物消耗价值（config_cost）· ${series.length} 条曲线</text>
+      <text class="chart-axis-caption axis-secondary" x="${width - padding.right}" y="14" text-anchor="end">当日总消耗价值 · T</text>
       ${ticks
         .map(
           (tick) => `
             <line class="chart-grid-line" x1="${padding.left}" y1="${tick.y}" x2="${width - padding.right}" y2="${tick.y}"></line>
-            <text class="chart-axis-label" x="${padding.left - 9}" y="${tick.y + 3}" text-anchor="end">${escapeHtml(formatRate(tick.primaryValue, 1))}</text>
+            <text class="chart-axis-label" x="${padding.left - 9}" y="${tick.y + 3}" text-anchor="end">${escapeHtml(formatKbt(tick.primaryValue))}</text>
             <text class="chart-axis-label" x="${width - padding.right + 9}" y="${tick.y + 3}" text-anchor="start">${escapeHtml(formatT(tick.secondaryValue))}</text>
           `,
         )
@@ -534,7 +534,7 @@ function renderDualAxisChart(container, data) {
           const path = item.points
             .map(
               (point, pointIndex) =>
-                `${pointIndex === 0 ? 'M' : 'L'} ${positions.get(point.date).toFixed(1)} ${primaryY(point.config_cost_ratio).toFixed(1)}`,
+                `${pointIndex === 0 ? 'M' : 'L'} ${positions.get(point.date).toFixed(1)} ${primaryY(point.config_cost).toFixed(1)}`,
             )
             .join(' ');
           return `
@@ -542,8 +542,8 @@ function renderDualAxisChart(container, data) {
             ${item.points
               .map(
                 (point) => `
-                  <circle class="chart-point chart-point-series series-tone-${seriesIndex % 6}" cx="${positions.get(point.date)}" cy="${primaryY(point.config_cost_ratio)}" r="2.8">
-                    <title>${escapeHtml(item.name)} · ${escapeHtml(point.date)} · 怪物消耗占比：${escapeHtml(formatRate(point.config_cost_ratio))}</title>
+                  <circle class="chart-point chart-point-series series-tone-${seriesIndex % 6}" cx="${positions.get(point.date)}" cy="${primaryY(point.config_cost)}" r="2.8">
+                    <title>${escapeHtml(item.name)} · ${escapeHtml(point.date)} · 怪物消耗价值：${escapeHtml(formatKbt(point.config_cost))}</title>
                   </circle>
                 `,
               )
@@ -707,6 +707,12 @@ function renderWeeklyMonsterChart(container, rows) {
 function renderCharts(rows, meta) {
   const dailyByMonster = aggregateDailyByMonster(rows);
   renderDualAxisChart(elements.trendChart, dailyByMonster);
+  renderMonsterSeriesChart(
+    elements.costRatioChart,
+    dailyByMonster.series,
+    'config_cost_ratio',
+    '怪物消耗占比',
+  );
   renderMonsterSeriesChart(elements.rtpChart, dailyByMonster.series, 'rtp', 'RTP');
   renderMonsterSeriesChart(
     elements.userKillChart,
@@ -833,6 +839,7 @@ function renderEmptyState(message) {
   elements.yesterdayTop3Label.textContent = '昨日消耗 TOP3';
   elements.yesterdayTop3.innerHTML = `<li class="top3-empty">${escapeHtml(message)}</li>`;
   chartEmpty(elements.trendChart, message);
+  chartEmpty(elements.costRatioChart, message);
   chartEmpty(elements.rtpChart, message);
   chartEmpty(elements.userKillChart, message);
   chartEmpty(elements.monsterKillChart, message);
