@@ -17,7 +17,12 @@ function rowKey(row) {
   return `${row.stat_date}|${row.arena_id}|${row.monster_name}`;
 }
 
-function mergeRows(existingRows, incomingRows, fromDate, endDateExclusive) {
+export function mergeDashboardRows(
+  existingRows,
+  incomingRows,
+  fromDate,
+  endDateExclusive,
+) {
   const preserved = existingRows.filter(
     (row) => row.stat_date < fromDate || row.stat_date >= endDateExclusive,
   );
@@ -67,7 +72,7 @@ async function writeSnapshot(snapshot) {
 async function refreshRangeFromDatabase(fromDate, endDateExclusive) {
   const incomingRows = await fetchDashboardRows(fromDate, endDateExclusive);
   const current = await readSnapshot();
-  const rows = mergeRows(
+  const rows = mergeDashboardRows(
     current?.rows || [],
     incomingRows,
     fromDate,

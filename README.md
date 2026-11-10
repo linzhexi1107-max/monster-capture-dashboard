@@ -109,6 +109,10 @@ MYSQL_DATABASE
 
 并在仓库 `Settings -> Pages` 中将发布来源设为 `GitHub Actions`。
 
+每次更新只查询本次缺失日期（正常运行时为前一天），并把新数据合并进完整
+`docs/data/dashboard-data.json`。合并后的快照会提交回仓库，因此历史数据不会
+被删除；页面始终直接读取这份完整快照。
+
 ## 测试
 
 ```powershell
