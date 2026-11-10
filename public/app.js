@@ -316,25 +316,105 @@ function chartLegendHtml(series, extraItems = []) {
       ${series
         .map(
           (item, index) => `
-            <span class="chart-series-legend-item">
+            <button
+              class="chart-series-legend-item chart-legend-toggle"
+              type="button"
+              data-legend-series="${escapeHtml(seriesDomId(item, index))}"
+              aria-pressed="true"
+            >
               <i class="series-swatch series-swatch-${index % 6}" aria-hidden="true"></i>
               <span>${escapeHtml(item.name)}</span>
-            </span>
+            </button>
           `,
         )
         .join('')}
       ${extraItems
         .map(
-          (item) => `
-            <span class="chart-series-legend-item">
-              <i class="${item.swatchClass}" aria-hidden="true"></i>
-              <span>${escapeHtml(item.label)}</span>
-            </span>
-          `,
+          (item) =>
+            item.seriesId
+              ? `
+                <button
+                  class="chart-series-legend-item chart-legend-toggle"
+                  type="button"
+                  data-legend-series="${escapeHtml(item.seriesId)}"
+                  aria-pressed="true"
+                >
+                  <i class="${item.swatchClass}" aria-hidden="true"></i>
+                  <span>${escapeHtml(item.label)}</span>
+                </button>
+              `
+              : `
+                <span class="chart-series-legend-item">
+                  <i class="${item.swatchClass}" aria-hidden="true"></i>
+                  <span>${escapeHtml(item.label)}</span>
+                </span>
+              `,
         )
         .join('')}
     </div>
   `;
+}
+
+function seriesDomId(item, index) {
+  return String(item.configId || item.id || item.name || `series-${index}`);
+}
+
+function chartDataLabel(x, y, text, anchor = 'end') {
+  return `<text class="chart-data-label" x="${x}" y="${Math.max(12, y - 7)}" text-anchor="${anchor}">${escapeHtml(text)}</text>`;
+}
+
+function bindChartInteractions(container) {
+  let tooltip = container.querySelector('.chart-hover-tooltip');
+  if (!tooltip) {
+    tooltip = document.createElement('div');
+    tooltip.className = 'chart-hover-tooltip';
+    tooltip.hidden = true;
+    container.append(tooltip);
+  }
+  if (container.dataset.interactionsBound === 'true') return;
+  container.dataset.interactionsBound = 'true';
+
+  container.addEventListener('pointerover', (event) => {
+    const hit = event.target.closest('.chart-hit-point');
+    if (!hit || !container.contains(hit)) return;
+    const seriesId = hit.dataset.seriesId;
+    container.classList.add('has-active-series');
+    for (const group of container.querySelectorAll('[data-series-group]')) {
+      group.classList.toggle(
+        'is-active',
+        group.dataset.seriesGroup === seriesId,
+      );
+    }
+    tooltip = container.querySelector('.chart-hover-tooltip');
+    tooltip.innerHTML = `
+      <strong>${escapeHtml(hit.dataset.seriesName)}</strong>
+      <span>${escapeHtml(hit.dataset.date)}</span>
+      <span>${escapeHtml(hit.dataset.metric)}：${escapeHtml(hit.dataset.value)}</span>
+    `;
+    tooltip.hidden = false;
+  });
+
+  container.addEventListener('pointerleave', () => {
+    container.classList.remove('has-active-series');
+    for (const group of container.querySelectorAll('[data-series-group]')) {
+      group.classList.remove('is-active');
+    }
+    const currentTooltip = container.querySelector('.chart-hover-tooltip');
+    if (currentTooltip) currentTooltip.hidden = true;
+  });
+
+  container.addEventListener('click', (event) => {
+    const button = event.target.closest('.chart-legend-toggle');
+    if (!button || !container.contains(button)) return;
+    const visible = button.getAttribute('aria-pressed') !== 'true';
+    button.setAttribute('aria-pressed', String(visible));
+    button.classList.toggle('is-off', !visible);
+    for (const group of container.querySelectorAll('[data-series-group]')) {
+      if (group.dataset.seriesGroup === button.dataset.legendSeries) {
+        group.classList.toggle('is-series-hidden', !visible);
+      }
+    }
+  });
 }
 
 function paddedDomain(values, minimumSpan = 0.02) {
@@ -398,7 +478,7 @@ function renderMonsterSeriesChart(container, series, valueKey, axisLabel) {
   );
   const width = Math.max(container.clientWidth, 280);
   const height = 258;
-  const padding = { top: 28, right: 20, bottom: 38, left: 58 };
+  const padding = { top: 28, right: 46, bottom: 38, left: 58 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const positions = xPositions(dates, padding.left, plotWidth);
@@ -427,23 +507,48 @@ function renderMonsterSeriesChart(container, series, valueKey, axisLabel) {
         .join('')}
       ${visibleSeries
         .map((item, seriesIndex) => {
+          const seriesId = seriesDomId(item, seriesIndex);
           const path = item.points
             .map(
               (point, pointIndex) =>
                 `${pointIndex === 0 ? 'M' : 'L'} ${positions.get(point.date).toFixed(1)} ${yAt(point[valueKey]).toFixed(1)}`,
             )
             .join(' ');
+          const labelPoints =
+            visibleSeries.length === 1 && item.points.length <= 7
+              ? item.points
+              : [item.points.at(-1)];
           return `
-            <path class="chart-line monster-series series-tone-${seriesIndex % 6}" d="${path}"></path>
-            ${item.points
-              .map(
-                (point) => `
-                  <circle class="chart-point chart-point-series series-tone-${seriesIndex % 6}" cx="${positions.get(point.date)}" cy="${yAt(point[valueKey])}" r="2.8">
-                    <title>${escapeHtml(item.name)} · ${escapeHtml(point.date)} · ${escapeHtml(axisLabel)}：${escapeHtml(formatRate(point[valueKey]))}</title>
-                  </circle>
-                `,
-              )
-              .join('')}
+            <g class="chart-series-group" data-series-group="${escapeHtml(seriesId)}">
+              <path class="chart-line monster-series series-tone-${seriesIndex % 6}" d="${path}"></path>
+              ${item.points
+                .map(
+                  (point) => `
+                    <circle class="chart-point chart-point-series series-tone-${seriesIndex % 6}" cx="${positions.get(point.date)}" cy="${yAt(point[valueKey])}" r="2.8"></circle>
+                    <circle
+                      class="chart-hit-point"
+                      cx="${positions.get(point.date)}"
+                      cy="${yAt(point[valueKey])}"
+                      r="8"
+                      data-series-id="${escapeHtml(seriesId)}"
+                      data-series-name="${escapeHtml(item.name)}"
+                      data-date="${escapeHtml(point.date)}"
+                      data-metric="${escapeHtml(axisLabel)}"
+                      data-value="${escapeHtml(formatRate(point[valueKey]))}"
+                    ></circle>
+                  `,
+                )
+                .join('')}
+              ${labelPoints
+                .map((point) =>
+                  chartDataLabel(
+                    positions.get(point.date),
+                    yAt(point[valueKey]),
+                    formatRate(point[valueKey]),
+                  ),
+                )
+                .join('')}
+            </g>
           `;
         })
         .join('')}
@@ -451,6 +556,7 @@ function renderMonsterSeriesChart(container, series, valueKey, axisLabel) {
     </svg>
     ${chartLegendHtml(visibleSeries)}
   `;
+  bindChartInteractions(container);
 }
 
 function renderDualAxisChart(container, data) {
@@ -467,7 +573,7 @@ function renderDualAxisChart(container, data) {
   ])].sort();
   const width = Math.max(container.clientWidth, 300);
   const height = 292;
-  const padding = { top: 30, right: 66, bottom: 38, left: 62 };
+  const padding = { top: 30, right: 76, bottom: 38, left: 62 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const positions = xPositions(dates, padding.left, plotWidth);
@@ -519,35 +625,76 @@ function renderDualAxisChart(container, data) {
           `,
         )
         .join('')}
-      <path class="chart-line daily-total-line" d="${totalPath}"></path>
-      ${dailyTotals
-        .map(
-          (point) => `
-            <circle class="chart-point chart-point-secondary" cx="${positions.get(point.date)}" cy="${secondaryY(point.daily_config_cost)}" r="3">
-              <title>${escapeHtml(point.date)} · 当日总消耗价值：${escapeHtml(formatT(point.daily_config_cost))}</title>
-            </circle>
-          `,
-        )
-        .join('')}
+      <g class="chart-series-group" data-series-group="daily-total">
+        <path class="chart-line daily-total-line" d="${totalPath}"></path>
+        ${dailyTotals
+          .map(
+            (point) => `
+              <circle class="chart-point chart-point-secondary" cx="${positions.get(point.date)}" cy="${secondaryY(point.daily_config_cost)}" r="3"></circle>
+              <circle
+                class="chart-hit-point"
+                cx="${positions.get(point.date)}"
+                cy="${secondaryY(point.daily_config_cost)}"
+                r="8"
+                data-series-id="daily-total"
+                data-series-name="当日总消耗价值"
+                data-date="${escapeHtml(point.date)}"
+                data-metric="当日总消耗价值"
+                data-value="${escapeHtml(formatT(point.daily_config_cost))}"
+              ></circle>
+            `,
+          )
+          .join('')}
+        ${chartDataLabel(
+          positions.get(dailyTotals.at(-1).date),
+          secondaryY(dailyTotals.at(-1).daily_config_cost),
+          formatT(dailyTotals.at(-1).daily_config_cost),
+        )}
+      </g>
       ${series
         .map((item, seriesIndex) => {
+          const seriesId = seriesDomId(item, seriesIndex);
           const path = item.points
             .map(
               (point, pointIndex) =>
                 `${pointIndex === 0 ? 'M' : 'L'} ${positions.get(point.date).toFixed(1)} ${primaryY(point.config_cost).toFixed(1)}`,
             )
             .join(' ');
+          const labelPoints =
+            series.length === 1 && item.points.length <= 7
+              ? item.points
+              : [item.points.at(-1)];
           return `
-            <path class="chart-line monster-series series-tone-${seriesIndex % 6}" d="${path}"></path>
-            ${item.points
-              .map(
-                (point) => `
-                  <circle class="chart-point chart-point-series series-tone-${seriesIndex % 6}" cx="${positions.get(point.date)}" cy="${primaryY(point.config_cost)}" r="2.8">
-                    <title>${escapeHtml(item.name)} · ${escapeHtml(point.date)} · 怪物消耗价值：${escapeHtml(formatKbt(point.config_cost))}</title>
-                  </circle>
-                `,
-              )
-              .join('')}
+            <g class="chart-series-group" data-series-group="${escapeHtml(seriesId)}">
+              <path class="chart-line monster-series series-tone-${seriesIndex % 6}" d="${path}"></path>
+              ${item.points
+                .map(
+                  (point) => `
+                    <circle class="chart-point chart-point-series series-tone-${seriesIndex % 6}" cx="${positions.get(point.date)}" cy="${primaryY(point.config_cost)}" r="2.8"></circle>
+                    <circle
+                      class="chart-hit-point"
+                      cx="${positions.get(point.date)}"
+                      cy="${primaryY(point.config_cost)}"
+                      r="8"
+                      data-series-id="${escapeHtml(seriesId)}"
+                      data-series-name="${escapeHtml(item.name)}"
+                      data-date="${escapeHtml(point.date)}"
+                      data-metric="怪物消耗价值"
+                      data-value="${escapeHtml(formatKbt(point.config_cost))}"
+                    ></circle>
+                  `,
+                )
+                .join('')}
+              ${labelPoints
+                .map((point) =>
+                  chartDataLabel(
+                    positions.get(point.date),
+                    primaryY(point.config_cost),
+                    formatKbt(point.config_cost),
+                  ),
+                )
+                .join('')}
+            </g>
           `;
         })
         .join('')}
@@ -557,9 +704,11 @@ function renderDualAxisChart(container, data) {
       {
         swatchClass: 'series-swatch series-swatch-daily-total',
         label: '当日总消耗价值',
+        seriesId: 'daily-total',
       },
     ])}
   `;
+  bindChartInteractions(container);
 }
 
 function renderTopMonsterChart(monsters, period, selectedNames) {
@@ -625,7 +774,7 @@ function renderWeeklyMonsterChart(container, rows) {
   ))].sort();
   const width = Math.max(container.clientWidth, 300);
   const height = 270;
-  const padding = { top: 28, right: 20, bottom: 38, left: 58 };
+  const padding = { top: 28, right: 46, bottom: 38, left: 58 };
   const plotWidth = width - padding.left - padding.right;
   const plotHeight = height - padding.top - padding.bottom;
   const positions = xPositions(dates, padding.left, plotWidth);
@@ -663,6 +812,7 @@ function renderWeeklyMonsterChart(container, rows) {
         .join('')}
       ${displaySeries
         .map((series, seriesIndex) => {
+          const seriesId = seriesDomId(series, seriesIndex);
           const path = series.points
             .map(
               (point, pointIndex) =>
@@ -674,18 +824,42 @@ function renderWeeklyMonsterChart(container, rows) {
               ? `<line class="chart-average-line" x1="${padding.left}" y1="${yAt(series.average)}" x2="${width - padding.right}" y2="${yAt(series.average)}"></line>
                  <text class="chart-average-label" x="${width - padding.right}" y="${yAt(series.average) - 6}" text-anchor="end">均值 ${escapeHtml(formatRate(series.average))}</text>`
               : '';
+          const labelPoints =
+            displaySeries.length === 1 && series.points.length <= 7
+              ? series.points
+              : [series.points.at(-1)];
           return `
-            ${averageLine}
-            <path class="chart-line weekly-series ${displaySeries.length === 1 ? 'weekly-series-single' : ''} series-tone-${seriesIndex % 6}" d="${path}"></path>
-            ${series.points
-              .map(
-                (point) => `
-                  <circle class="chart-point ${point.belowAverage ? 'is-below-average' : ''}" cx="${positions.get(point.date)}" cy="${yAt(point.value)}" r="${point.belowAverage ? 4.2 : 2.8}">
-                    <title>${escapeHtml(series.name)} · ${escapeHtml(point.date)} · 怪物击杀率：${escapeHtml(formatRate(point.value))}${point.belowAverage ? `，低于该 ID 近 7 日均值 ${escapeHtml(formatRate(series.average))}` : ''}</title>
-                  </circle>
-                `,
-              )
-              .join('')}
+            <g class="chart-series-group" data-series-group="${escapeHtml(seriesId)}">
+              ${averageLine}
+              <path class="chart-line weekly-series ${displaySeries.length === 1 ? 'weekly-series-single' : ''} series-tone-${seriesIndex % 6}" d="${path}"></path>
+              ${series.points
+                .map(
+                  (point) => `
+                    <circle class="chart-point ${point.belowAverage ? 'is-below-average' : ''}" cx="${positions.get(point.date)}" cy="${yAt(point.value)}" r="${point.belowAverage ? 4.2 : 2.8}"></circle>
+                    <circle
+                      class="chart-hit-point"
+                      cx="${positions.get(point.date)}"
+                      cy="${yAt(point.value)}"
+                      r="8"
+                      data-series-id="${escapeHtml(seriesId)}"
+                      data-series-name="${escapeHtml(series.name)}"
+                      data-date="${escapeHtml(point.date)}"
+                      data-metric="怪物击杀率"
+                      data-value="${escapeHtml(formatRate(point.value))}"
+                    ></circle>
+                  `,
+                )
+                .join('')}
+              ${labelPoints
+                .map((point) =>
+                  chartDataLabel(
+                    positions.get(point.date),
+                    yAt(point.value),
+                    formatRate(point.value),
+                  ),
+                )
+                .join('')}
+            </g>
           `;
         })
         .join('')}
@@ -702,6 +876,7 @@ function renderWeeklyMonsterChart(container, rows) {
       },
     ])}
   `;
+  bindChartInteractions(container);
 }
 
 function renderCharts(rows, meta) {

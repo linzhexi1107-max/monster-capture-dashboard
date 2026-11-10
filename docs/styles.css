@@ -701,6 +701,7 @@ h2 {
 }
 
 .chart-canvas {
+  position: relative;
   min-height: 286px;
   margin-top: 5px;
 }
@@ -736,6 +737,84 @@ h2 {
   gap: 6px;
   align-items: center;
   white-space: nowrap;
+}
+
+.chart-legend-toggle {
+  padding: 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chart-legend-toggle.is-off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.chart-series-group {
+  transition: opacity 140ms ease;
+}
+
+.chart-series-group.is-series-hidden {
+  display: none;
+}
+
+.chart-canvas.has-active-series
+  .chart-series-group:not(.is-active) {
+  opacity: 0.18;
+}
+
+.chart-series-group.is-active .chart-line {
+  stroke-width: 3.6px;
+}
+
+.chart-hit-point {
+  fill: transparent;
+  stroke: none;
+  pointer-events: all;
+  cursor: crosshair;
+}
+
+.chart-data-label {
+  fill: var(--foreground);
+  stroke: var(--surface-solid);
+  stroke-width: 3px;
+  paint-order: stroke;
+  stroke-linejoin: round;
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-hover-tooltip {
+  position: absolute;
+  z-index: 5;
+  top: 8px;
+  right: 8px;
+  display: grid;
+  gap: 3px;
+  min-width: 146px;
+  padding: 9px 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--surface-solid);
+  box-shadow: 0 10px 30px rgba(23, 32, 29, 0.16);
+  color: var(--foreground);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.chart-hover-tooltip strong {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.chart-hover-tooltip span {
+  color: var(--muted);
 }
 
 .series-swatch {
