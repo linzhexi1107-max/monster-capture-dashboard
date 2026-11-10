@@ -380,7 +380,10 @@ function bindChartInteractions(container) {
       group.classList.remove('is-active');
     }
     const currentTooltip = container.querySelector('.chart-hover-tooltip');
-    if (currentTooltip) currentTooltip.hidden = true;
+    if (currentTooltip) {
+      currentTooltip.hidden = true;
+      currentTooltip.classList.remove('is-visible');
+    }
   };
 
   const showHover = (target, event) => {
@@ -427,6 +430,7 @@ function bindChartInteractions(container) {
       <span>${escapeHtml(data.metric)}：${escapeHtml(data.value)}</span>
     `;
     tooltip.hidden = false;
+    tooltip.classList.add('is-visible');
   };
 
   container.addEventListener('pointerover', (event) => {
@@ -435,6 +439,15 @@ function bindChartInteractions(container) {
 
   container.addEventListener('pointermove', (event) => {
     showHover(event.target, event);
+  });
+
+  container.addEventListener('pointerout', (event) => {
+    const source = event.target.closest('.chart-hit-point, .chart-hit-line');
+    if (!source) return;
+    const destination = event.relatedTarget?.closest?.(
+      '.chart-hit-point, .chart-hit-line',
+    );
+    if (!destination) clearHover();
   });
 
   container.addEventListener('pointerleave', () => {
