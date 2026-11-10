@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-CN" data-dashboard-mode="server">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="怪物捕获消耗、RTP、参与人数与击杀率分析"
+    />
+    <title>怪物捕获分析</title>
+    <link rel="stylesheet" href="/styles.css?v=13" />
+    <script src="/app.js?v=13" type="module"></script>
+  </head>
+  <body>
+    <div class="page-orbit orbit-one" aria-hidden="true"></div>
+    <div class="page-orbit orbit-two" aria-hidden="true"></div>
+
+    <header class="app-header">
+      <a class="brand" href="/" aria-label="怪物捕获分析首页">
+        <span class="brand-mark" aria-hidden="true">
+          <span></span><span></span><span></span>
+        </span>
+        <span class="brand-copy">
+          <strong>怪物捕获分析</strong>
+          <small>MONSTER CAPTURE</small>
+        </span>
+      </a>
+      <div class="header-status">
+        <span class="status-dot" id="statusDot" aria-hidden="true"></span>
+        <span id="statusText">正在连接数据</span>
+      </div>
+    </header>
+
+    <main class="app-main">
+      <section class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">DAILY PERFORMANCE</p>
+          <h1>捕获经营概览</h1>
+          <p class="hero-description">
+            观察怪物消耗、RTP、参与与击杀表现，数据每天早上 08:00
+            自动更新至前一日。
+          </p>
+        </div>
+        <div class="update-panel">
+          <span class="update-label">最近更新</span>
+          <strong id="lastUpdated">等待数据</strong>
+          <span class="update-note">Asia/Shanghai · 每日 08:00</span>
+        </div>
+      </section>
+
+      <div class="notice" id="notice" role="status" hidden></div>
+
+      <section class="filter-panel" aria-labelledby="filterTitle">
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">FILTERS</p>
+            <h2 id="filterTitle">筛选数据</h2>
+          </div>
+          <button class="text-button" id="resetFilters" type="button">
+            恢复默认
+          </button>
+        </div>
+
+        <form id="filterForm" class="filter-grid">
+          <div class="field field-date">
+            <label for="startDate">开始日期</label>
+            <input id="startDate" name="start_date" type="date" required />
+          </div>
+          <div class="field field-date">
+            <label for="endDate">结束日期</label>
+            <input id="endDate" name="end_date" type="date" required />
+          </div>
+          <div class="field">
+            <label for="arenaId">场次</label>
+            <select id="arenaId" name="arena_id">
+              <option value="">全部场次</option>
+            </select>
+          </div>
+          <div class="field">
+            <label id="monsterLabel">怪物名称</label>
+            <div class="multi-select" id="monsterMultiSelect">
+              <button
+                class="multi-select-trigger"
+                id="monsterTrigger"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+                aria-labelledby="monsterLabel monsterTriggerText"
+              >
+                <span id="monsterTriggerText">全部怪物</span>
+                <span class="multi-select-arrow" aria-hidden="true">⌄</span>
+              </button>
+              <div class="multi-select-menu" id="monsterMenu" hidden>
+                <div class="multi-select-toolbar">
+                  <button id="selectAllMonsters" type="button">全选</button>
+                  <button id="clearMonsters" type="button">清空</button>
+                </div>
+                <div
+                  class="multi-select-options"
+                  id="monsterOptions"
+                  role="listbox"
+                  aria-multiselectable="true"
+                  aria-labelledby="monsterLabel"
+                ></div>
+              </div>
+            </div>
+          </div>
+          <button class="apply-button" type="submit">
+            <span>应用筛选</span>
+            <span class="button-arrow" aria-hidden="true">↗</span>
+          </button>
+        </form>
+        <p class="filter-error" id="filterError" role="alert" hidden></p>
+      </section>
+
+      <section class="metrics" aria-label="筛选结果摘要">
+        <article class="metric-card metric-primary">
+          <span class="metric-label">怪物消耗价值</span>
+          <strong class="metric-value" id="metricCost">—</strong>
+          <span class="metric-note">所选怪物消耗价值合计</span>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">加权 RTP</span>
+          <strong class="metric-value" id="metricRtp">—</strong>
+          <span class="metric-note">Σ(怪物消耗价值×RTP) / Σ怪物消耗价值</span>
+        </article>
+        <article class="metric-card">
+          <span class="metric-label">综合用户击杀率</span>
+          <strong class="metric-value" id="metricKillRate">—</strong>
+          <span class="metric-note">击杀用户数 / 击打用户数</span>
+        </article>
+        <article class="metric-card metric-top3">
+          <span class="metric-label" id="yesterdayTop3Label">昨日消耗 TOP3</span>
+          <ol class="top3-list" id="yesterdayTop3" aria-live="polite">
+            <li class="top3-empty">正在加载</li>
+          </ol>
+        </article>
+      </section>
+
+      <section class="charts-grid" aria-label="趋势图表">
+        <article class="chart-card chart-wide">
+          <div class="chart-heading">
+            <div>
+              <p class="section-kicker">COST</p>
+              <h2>怪物消耗占比与当日总消耗价值</h2>
+            </div>
+            <div class="chart-legend" aria-label="图例">
+              <span>左轴：怪物消耗占比</span>
+              <span>右轴：当日总消耗价值 · T</span>
+            </div>
+          </div>
+          <div
+            class="chart-canvas"
+            id="trendChart"
+            role="img"
+            aria-label="按日期分别展示怪物消耗占比和当日总消耗价值双轴趋势"
+          ></div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-heading">
+            <div>
+              <p class="section-kicker">RTP</p>
+              <h2>RTP 趋势</h2>
+            </div>
+            <span class="chart-unit">单位：百分比</span>
+          </div>
+          <div
+            class="chart-canvas"
+            id="rtpChart"
+            role="img"
+            aria-label="按日期展示 RTP 趋势"
+          ></div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-heading">
+            <div>
+              <p class="section-kicker">USER KILL</p>
+              <h2>用户击杀率</h2>
+            </div>
+            <span class="chart-unit">单位：百分比</span>
+          </div>
+          <div
+            class="chart-canvas rank-canvas"
+            id="userKillChart"
+            role="img"
+            aria-label="按日期展示用户击杀率"
+          ></div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-heading">
+            <div>
+              <p class="section-kicker">MONSTER KILL</p>
+              <h2>怪物击杀率</h2>
+            </div>
+            <span class="chart-unit">单位：百分比</span>
+          </div>
+          <div
+            class="chart-canvas rank-canvas"
+            id="monsterKillChart"
+            role="img"
+            aria-label="按日期展示怪物击杀率"
+          ></div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-heading">
+            <div>
+              <p class="section-kicker">TOP 10</p>
+              <h2>近 7 日怪物消耗占比</h2>
+            </div>
+            <span class="chart-unit" id="topMonsterPeriod">—</span>
+          </div>
+          <div
+            class="chart-canvas rank-canvas"
+            id="topMonsterChart"
+            role="img"
+            aria-label="最近七天怪物消耗占比前十怪物"
+          ></div>
+        </article>
+
+        <article class="chart-card chart-wide">
+          <div class="chart-heading weekly-heading">
+            <div>
+              <p class="section-kicker">7-DAY CHECK</p>
+              <h2>近 7 日怪物击杀率</h2>
+            </div>
+            <div class="weekly-note">
+              <span>每个怪物独立计算近 7 日均值</span>
+            </div>
+          </div>
+          <div
+            class="chart-canvas"
+            id="weeklyMonsterChart"
+            role="img"
+            aria-label="每个怪物配置近七日怪物击杀率，低于自身均值的点标红"
+          ></div>
+        </article>
+      </section>
+
+      <section class="table-section" aria-labelledby="tableTitle">
+        <div class="panel-heading table-heading">
+          <div>
+            <p class="section-kicker">DETAIL</p>
+            <h2 id="tableTitle">明细数据</h2>
+          </div>
+        </div>
+
+        <div class="table-shell">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">日期</th>
+                  <th scope="col">场次</th>
+                  <th scope="col" class="numeric-cell">消耗排名</th>
+                  <th scope="col">怪物名称</th>
+                  <th scope="col" class="numeric-cell">怪物消耗价值</th>
+                  <th scope="col" class="numeric-cell">当日总消耗价值</th>
+                  <th scope="col" class="numeric-cell">怪物消耗占比</th>
+                  <th scope="col" class="numeric-cell">RTP</th>
+                  <th scope="col" class="numeric-cell">击打用户数</th>
+                  <th scope="col" class="numeric-cell">击杀用户数</th>
+                  <th scope="col" class="numeric-cell">用户击杀率</th>
+                  <th scope="col" class="numeric-cell">击打怪物数</th>
+                  <th scope="col" class="numeric-cell">击杀怪物数</th>
+                  <th scope="col" class="numeric-cell">怪物击杀率</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody">
+                <tr class="loading-row">
+                  <td colspan="14">
+                    <span class="loading-spinner" aria-hidden="true"></span>
+                    正在读取数据
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="pagination" id="pagination" hidden>
+          <span id="pageInfo"></span>
+          <div class="pagination-actions">
+            <button id="previousPage" type="button">上一页</button>
+            <button id="nextPage" type="button">下一页</button>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="app-footer">
+      <span>数据时间以 Asia/Shanghai 为准</span>
+      <span>公开只读视图</span>
+    </footer>
+  </body>
+</html>
