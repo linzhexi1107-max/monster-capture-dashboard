@@ -374,45 +374,94 @@ function bindChartInteractions(container) {
   if (container.dataset.interactionsBound === 'true') return;
   container.dataset.interactionsBound = 'true';
 
-  container.addEventListener('pointerover', (event) => {
-    const hit = event.target.closest('.chart-hit-point');
-    if (!hit || !container.contains(hit)) return;
-    const seriesId = hit.dataset.seriesId;
-    container.classList.add('has-active-series');
-    for (const group of container.querySelectorAll('[data-series-group]')) {
-      group.classList.toggle(
-        'is-active',
-        group.dataset.seriesGroup === seriesId,
-      );
-    }
-    tooltip = container.querySelector('.chart-hover-tooltip');
-    tooltip.innerHTML = `
-      <strong>${escapeHtml(hit.dataset.seriesName)}</strong>
-      <span>${escapeHtml(hit.dataset.date)}</span>
-      <span>${escapeHtml(hit.dataset.metric)}：${escapeHtml(hit.dataset.value)}</span>
-    `;
-    tooltip.hidden = false;
-  });
-
-  container.addEventListener('pointerleave', () => {
+  const clearHover = () => {
     container.classList.remove('has-active-series');
     for (const group of container.querySelectorAll('[data-series-group]')) {
       group.classList.remove('is-active');
     }
     const currentTooltip = container.querySelector('.chart-hover-tooltip');
     if (currentTooltip) currentTooltip.hidden = true;
+  };
+
+  const showHover = (target, event) => {
+    const pointTarget = target.closest('.chart-hit-point');
+    const lineTarget = target.closest('.chart-hit-line');
+    const group = target.closest('[data-series-group]');
+    if ((!pointTarget && !lineTarget) || !group) {
+      clearHover();
+      return;
+    }
+
+    let data = pointTarget?.dataset;
+    if (!data) {
+      const svg = container.querySelector('svg');
+      const rect = svg?.getBoundingClientRect();
+      if (!svg || !rect?.width) return;
+      const xUser =
+        ((event.clientX - rect.left) / rect.width) * svg.viewBox.baseVal.width;
+      let nearest = null;
+      let nearestDistance = Infinity;
+      for (const anchor of group.querySelectorAll('.chart-hover-anchor')) {
+        const distance = Math.abs(Number(anchor.dataset.x) - xUser);
+        if (distance < nearestDistance) {
+          nearest = anchor;
+          nearestDistance = distance;
+        }
+      }
+      if (!nearest) return;
+      data = nearest.dataset;
+    }
+
+    const seriesId = group.dataset.seriesGroup;
+    container.classList.add('has-active-series');
+    for (const item of container.querySelectorAll('[data-series-group]')) {
+      item.classList.toggle(
+        'is-active',
+        item.dataset.seriesGroup === seriesId,
+      );
+    }
+    tooltip = container.querySelector('.chart-hover-tooltip');
+    tooltip.innerHTML = `
+      <strong>${escapeHtml(data.seriesName)}</strong>
+      <span>${escapeHtml(data.date)}</span>
+      <span>${escapeHtml(data.metric)}：${escapeHtml(data.value)}</span>
+    `;
+    tooltip.hidden = false;
+  };
+
+  container.addEventListener('pointerover', (event) => {
+    showHover(event.target, event);
+  });
+
+  container.addEventListener('pointermove', (event) => {
+    showHover(event.target, event);
+  });
+
+  container.addEventListener('pointerleave', () => {
+    clearHover();
   });
 
   container.addEventListener('click', (event) => {
     const button = event.target.closest('.chart-legend-toggle');
     if (!button || !container.contains(button)) return;
-    const visible = button.getAttribute('aria-pressed') !== 'true';
-    button.setAttribute('aria-pressed', String(visible));
-    button.classList.toggle('is-off', !visible);
+    clearHover();
+    const clickedId = button.dataset.legendSeries;
+    const restoreAll =
+      container.dataset.selectedLegendSeries === clickedId;
+    container.dataset.selectedLegendSeries = restoreAll ? '' : clickedId;
+
+    for (const legendButton of container.querySelectorAll(
+      '.chart-legend-toggle',
+    )) {
+      const visible =
+        restoreAll || legendButton.dataset.legendSeries === clickedId;
+      legendButton.setAttribute('aria-pressed', String(visible));
+      legendButton.classList.toggle('is-off', !visible);
+    }
     for (const group of container.querySelectorAll('[data-series-group]')) {
-      if (group.dataset.seriesGroup === button.dataset.legendSeries) {
-        group.classList.toggle('is-series-hidden', !visible);
-      }
+      const visible =
+        restoreAll || group.dataset.seriesGroup === clickedId;
+      group.classList.toggle('is-series-hidden', !visible);
     }
   });
 }
@@ -514,19 +563,17 @@ function renderMonsterSeriesChart(container, series, valueKey, axisLabel) {
                 `${pointIndex === 0 ? 'M' : 'L'} ${positions.get(point.date).toFixed(1)} ${yAt(point[valueKey]).toFixed(1)}`,
             )
             .join(' ');
-          const labelPoints =
-            visibleSeries.length === 1 && item.points.length <= 7
-              ? item.points
-              : [item.points.at(-1)];
+          const labelPoints = dates.length <= 7 ? item.points : [];
           return `
             <g class="chart-series-group" data-series-group="${escapeHtml(seriesId)}">
               <path class="chart-line monster-series series-tone-${seriesIndex % 6}" d="${path}"></path>
+              <path class="chart-hit-line" d="${path}"></path>
               ${item.points
                 .map(
                   (point) => `
                     <circle class="chart-point chart-point-series series-tone-${seriesIndex % 6}" cx="${positions.get(point.date)}" cy="${yAt(point[valueKey])}" r="2.8"></circle>
                     <circle
-                      class="chart-hit-point"
+                      class="chart-hit-point chart-hover-anchor"
                       cx="${positions.get(point.date)}"
                       cy="${yAt(point[valueKey])}"
                       r="8"
@@ -535,6 +582,7 @@ function renderMonsterSeriesChart(container, series, valueKey, axisLabel) {
                       data-date="${escapeHtml(point.date)}"
                       data-metric="${escapeHtml(axisLabel)}"
                       data-value="${escapeHtml(formatRate(point[valueKey]))}"
+                      data-x="${positions.get(point.date)}"
                     ></circle>
                   `,
                 )
@@ -627,12 +675,13 @@ function renderDualAxisChart(container, data) {
         .join('')}
       <g class="chart-series-group" data-series-group="daily-total">
         <path class="chart-line daily-total-line" d="${totalPath}"></path>
+        <path class="chart-hit-line" d="${totalPath}"></path>
         ${dailyTotals
           .map(
             (point) => `
               <circle class="chart-point chart-point-secondary" cx="${positions.get(point.date)}" cy="${secondaryY(point.daily_config_cost)}" r="3"></circle>
               <circle
-                class="chart-hit-point"
+                class="chart-hit-point chart-hover-anchor"
                 cx="${positions.get(point.date)}"
                 cy="${secondaryY(point.daily_config_cost)}"
                 r="8"
@@ -641,15 +690,24 @@ function renderDualAxisChart(container, data) {
                 data-date="${escapeHtml(point.date)}"
                 data-metric="当日总消耗价值"
                 data-value="${escapeHtml(formatT(point.daily_config_cost))}"
+                data-x="${positions.get(point.date)}"
               ></circle>
             `,
           )
           .join('')}
-        ${chartDataLabel(
-          positions.get(dailyTotals.at(-1).date),
-          secondaryY(dailyTotals.at(-1).daily_config_cost),
-          formatT(dailyTotals.at(-1).daily_config_cost),
-        )}
+        ${
+          dates.length <= 7
+            ? dailyTotals
+                .map((point) =>
+                  chartDataLabel(
+                    positions.get(point.date),
+                    secondaryY(point.daily_config_cost),
+                    formatT(point.daily_config_cost),
+                  ),
+                )
+                .join('')
+            : ''
+        }
       </g>
       ${series
         .map((item, seriesIndex) => {
@@ -660,19 +718,17 @@ function renderDualAxisChart(container, data) {
                 `${pointIndex === 0 ? 'M' : 'L'} ${positions.get(point.date).toFixed(1)} ${primaryY(point.config_cost).toFixed(1)}`,
             )
             .join(' ');
-          const labelPoints =
-            series.length === 1 && item.points.length <= 7
-              ? item.points
-              : [item.points.at(-1)];
+          const labelPoints = dates.length <= 7 ? item.points : [];
           return `
             <g class="chart-series-group" data-series-group="${escapeHtml(seriesId)}">
               <path class="chart-line monster-series series-tone-${seriesIndex % 6}" d="${path}"></path>
+              <path class="chart-hit-line" d="${path}"></path>
               ${item.points
                 .map(
                   (point) => `
                     <circle class="chart-point chart-point-series series-tone-${seriesIndex % 6}" cx="${positions.get(point.date)}" cy="${primaryY(point.config_cost)}" r="2.8"></circle>
                     <circle
-                      class="chart-hit-point"
+                      class="chart-hit-point chart-hover-anchor"
                       cx="${positions.get(point.date)}"
                       cy="${primaryY(point.config_cost)}"
                       r="8"
@@ -681,6 +737,7 @@ function renderDualAxisChart(container, data) {
                       data-date="${escapeHtml(point.date)}"
                       data-metric="怪物消耗价值"
                       data-value="${escapeHtml(formatKbt(point.config_cost))}"
+                      data-x="${positions.get(point.date)}"
                     ></circle>
                   `,
                 )
@@ -824,20 +881,18 @@ function renderWeeklyMonsterChart(container, rows) {
               ? `<line class="chart-average-line" x1="${padding.left}" y1="${yAt(series.average)}" x2="${width - padding.right}" y2="${yAt(series.average)}"></line>
                  <text class="chart-average-label" x="${width - padding.right}" y="${yAt(series.average) - 6}" text-anchor="end">均值 ${escapeHtml(formatRate(series.average))}</text>`
               : '';
-          const labelPoints =
-            displaySeries.length === 1 && series.points.length <= 7
-              ? series.points
-              : [series.points.at(-1)];
+          const labelPoints = dates.length <= 7 ? series.points : [];
           return `
             <g class="chart-series-group" data-series-group="${escapeHtml(seriesId)}">
               ${averageLine}
               <path class="chart-line weekly-series ${displaySeries.length === 1 ? 'weekly-series-single' : ''} series-tone-${seriesIndex % 6}" d="${path}"></path>
+              <path class="chart-hit-line" d="${path}"></path>
               ${series.points
                 .map(
                   (point) => `
                     <circle class="chart-point ${point.belowAverage ? 'is-below-average' : ''}" cx="${positions.get(point.date)}" cy="${yAt(point.value)}" r="${point.belowAverage ? 4.2 : 2.8}"></circle>
                     <circle
-                      class="chart-hit-point"
+                      class="chart-hit-point chart-hover-anchor"
                       cx="${positions.get(point.date)}"
                       cy="${yAt(point.value)}"
                       r="8"
@@ -846,6 +901,7 @@ function renderWeeklyMonsterChart(container, rows) {
                       data-date="${escapeHtml(point.date)}"
                       data-metric="怪物击杀率"
                       data-value="${escapeHtml(formatRate(point.value))}"
+                      data-x="${positions.get(point.date)}"
                     ></circle>
                   `,
                 )

@@ -778,6 +778,14 @@ h2 {
   cursor: crosshair;
 }
 
+.chart-hit-line {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14px;
+  pointer-events: stroke;
+  cursor: crosshair;
+}
+
 .chart-data-label {
   fill: var(--foreground);
   stroke: var(--surface-solid);
