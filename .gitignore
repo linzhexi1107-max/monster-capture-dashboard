@@ -4,3 +4,4 @@ data/snapshot.json
 data/*.tmp
 npm-debug.log*
 .DS_Store
+logs/
