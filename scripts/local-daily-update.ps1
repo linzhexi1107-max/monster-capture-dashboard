@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $logDirectory = Join-Path $root 'logs'
 $logFile = Join-Path $logDirectory 'daily-update.log'
-$gcm = 'E:\软件\git\Git\mingw64\bin\git-credential-manager.exe'
+$tokenFile = Join-Path $root '.github-token.dpapi'
 
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 Set-Location -LiteralPath $root
@@ -15,14 +15,14 @@ try {
     throw "Database refresh failed with exit code $LASTEXITCODE."
   }
 
-  $credentialInput = "protocol=https`nhost=github.com`nusername=linzhexi1107-max`n`n"
-  $credentialLines = $credentialInput | & $gcm get 2>$null
-  $tokenLine = $credentialLines | Where-Object { $_ -like 'password=*' } | Select-Object -First 1
-  if (-not $tokenLine) {
-    throw 'GitHub credential was not available.'
+  $encryptedToken = (Get-Content -LiteralPath $tokenFile -Raw).Trim()
+  $secureToken = ConvertTo-SecureString $encryptedToken
+  $tokenPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secureToken)
+  try {
+    $env:GITHUB_TOKEN = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($tokenPointer)
+  } finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($tokenPointer)
   }
-
-  $env:GITHUB_TOKEN = $tokenLine.Substring(9)
   & node (Join-Path $root 'scripts\publish-github-data.mjs') *>> $logFile
   if ($LASTEXITCODE -ne 0) {
     throw "GitHub data publish failed with exit code $LASTEXITCODE."

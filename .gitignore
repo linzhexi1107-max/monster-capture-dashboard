@@ -5,3 +5,4 @@ data/*.tmp
 npm-debug.log*
 .DS_Store
 logs/
+.github-token.dpapi
