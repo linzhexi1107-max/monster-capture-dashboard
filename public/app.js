@@ -24,6 +24,10 @@ const elements = {
   statusDot: document.querySelector('#statusDot'),
   statusText: document.querySelector('#statusText'),
   lastUpdated: document.querySelector('#lastUpdated'),
+  anomalyPanel: document.querySelector('#anomalyPanel'),
+  anomalyStatus: document.querySelector('#anomalyStatus'),
+  anomalyConclusion: document.querySelector('#anomalyConclusion'),
+  anomalyList: document.querySelector('#anomalyList'),
   metricCost: document.querySelector('#metricCost'),
   metricRtp: document.querySelector('#metricRtp'),
   metricKillRate: document.querySelector('#metricKillRate'),
@@ -1026,6 +1030,32 @@ function renderMetrics(rows, meta) {
     : '<li class="top3-empty">昨日暂无数据</li>';
 }
 
+function renderAnomaly(report) {
+  const severity = report?.severity || 'stable';
+  elements.anomalyPanel.classList.remove(
+    'is-stable',
+    'is-warning',
+    'is-danger',
+  );
+  elements.anomalyPanel.classList.add(`is-${severity}`);
+  elements.anomalyStatus.textContent =
+    severity === 'danger'
+      ? '需重点关注'
+      : severity === 'warning'
+        ? '发现异常波动'
+        : '运行平稳';
+  elements.anomalyConclusion.textContent =
+    report?.conclusion || '昨日暂无可用异常分析数据。';
+  const alerts = report?.alerts || [];
+  elements.anomalyList.hidden = alerts.length === 0;
+  elements.anomalyList.innerHTML = alerts
+    .map(
+      (alert) =>
+        `<li class="${alert.severity === 'danger' ? 'is-danger' : ''}">${escapeHtml(alert.message)}</li>`,
+    )
+    .join('');
+}
+
 function metricCell(value) {
   return `<span title="${escapeHtml(formatNumber(value))}">${escapeHtml(formatKbt(value))}</span>`;
 }
@@ -1077,6 +1107,12 @@ function renderTable(rows) {
 }
 
 function renderEmptyState(message) {
+  elements.anomalyPanel.classList.remove('is-warning', 'is-danger');
+  elements.anomalyPanel.classList.add('is-danger');
+  elements.anomalyStatus.textContent = '数据异常';
+  elements.anomalyConclusion.textContent = message;
+  elements.anomalyList.hidden = true;
+  elements.anomalyList.innerHTML = '';
   elements.metricCost.textContent = '—';
   elements.metricRtp.textContent = '—';
   elements.metricKillRate.textContent = '—';
@@ -1096,6 +1132,7 @@ function renderEmptyState(message) {
 
 function render(payload) {
   setStatus(payload.meta);
+  renderAnomaly(payload.meta.dailyAnomalyReport);
   renderMetrics(state.rows, payload.meta);
   renderCharts(state.rows, payload.meta);
   renderTable(state.rows);

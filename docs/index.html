@@ -8,8 +8,8 @@
       content="怪物捕获消耗、RTP、参与人数与击杀率分析"
     />
     <title>怪物捕获分析</title>
-    <link rel="stylesheet" href="./styles.css?v=18" />
-    <script src="./app.js?v=18" type="module"></script>
+    <link rel="stylesheet" href="./styles.css?v=19" />
+    <script src="./app.js?v=19" type="module"></script>
   </head>
   <body>
     <div class="page-orbit orbit-one" aria-hidden="true"></div>
@@ -32,6 +32,29 @@
     </header>
 
     <main class="app-main">
+      <section
+        class="anomaly-panel is-stable"
+        id="anomalyPanel"
+        aria-labelledby="anomalyTitle"
+      >
+        <div class="anomaly-heading">
+          <div>
+            <p class="section-kicker">DAILY ALERT</p>
+            <h2 id="anomalyTitle">每日异常预警</h2>
+          </div>
+          <span class="anomaly-status" id="anomalyStatus">分析中</span>
+        </div>
+        <p class="anomaly-conclusion" id="anomalyConclusion">
+          正在生成昨日异常结论
+        </p>
+        <ul class="anomaly-list" id="anomalyList" aria-live="polite"></ul>
+        <p class="anomaly-rules">
+          预警规则：数据未更新至昨日；当日总消耗价值较前 7 日均值波动
+          30% 触发提醒、50% 触发严重预警；RTP 偏差 8/15 个百分点；
+          用户或怪物击杀率偏差 10/20 个百分点。
+        </p>
+      </section>
+
       <section class="hero">
         <div class="hero-copy">
           <p class="eyebrow">DAILY PERFORMANCE</p>
@@ -45,6 +68,70 @@
           <span class="update-label">最近更新</span>
           <strong id="lastUpdated">等待数据</strong>
           <span class="update-note">Asia/Shanghai · 每日 08:00</span>
+        </div>
+      </section>
+
+      <section
+        class="definition-panel"
+        aria-labelledby="definitionTitle"
+        id="metricDefinitions"
+      >
+        <div class="panel-heading">
+          <div>
+            <p class="section-kicker">METRIC DEFINITIONS</p>
+            <h2 id="definitionTitle">指标口径</h2>
+          </div>
+          <span class="definition-note">全站统一计算口径</span>
+        </div>
+        <div class="definition-grid">
+          <div class="definition-item">
+            <span>怪物消耗价值</span>
+            <code>config_cost</code>
+          </div>
+          <div class="definition-item">
+            <span>当日总消耗价值</span>
+            <code>daily_total_cost</code>
+          </div>
+          <div class="definition-item">
+            <span>消耗排名</span>
+            <code>按怪物消耗价值降序</code>
+          </div>
+          <div class="definition-item">
+            <span>怪物消耗占比</span>
+            <code>config_cost ÷ daily_total_cost</code>
+          </div>
+          <div class="definition-item">
+            <span>RTP</span>
+            <code>config_earn ÷ config_cost</code>
+          </div>
+          <div class="definition-item">
+            <span>加权 RTP</span>
+            <code>Σ(config_cost × RTP) ÷ Σconfig_cost</code>
+          </div>
+          <div class="definition-item definition-emphasis">
+            <span>用户击杀率</span>
+            <code>击杀用户数 ÷ 击打用户数</code>
+          </div>
+          <div class="definition-item definition-emphasis">
+            <span>怪物击杀率</span>
+            <code>击杀怪物数 ÷ 击打怪物数</code>
+          </div>
+          <div class="definition-item">
+            <span>击打用户数</span>
+            <code>DISTINCT player_id</code>
+          </div>
+          <div class="definition-item">
+            <span>击打怪物数</span>
+            <code>DISTINCT monster_id</code>
+          </div>
+          <div class="definition-item">
+            <span>击杀用户数 / 击杀怪物数</span>
+            <code>满足击杀条件后分别去重计数</code>
+          </div>
+          <div class="definition-item">
+            <span>近 7 日击杀率</span>
+            <code>每日怪物击杀率的算术平均</code>
+          </div>
         </div>
       </section>
 

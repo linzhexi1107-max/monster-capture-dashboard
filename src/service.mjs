@@ -2,6 +2,7 @@ import { config, hasDatabaseConfig } from './config.mjs';
 import { generateSampleRows } from './sample-data.mjs';
 import { ensureSnapshotFresh, readSnapshot } from './refresh.mjs';
 import { addDays, compareDateStrings } from './time.mjs';
+import { buildDailyAnomalyReport } from '../public/dashboard-logic.js';
 
 function makeMeta(rows, source, snapshot, warning = null) {
   const arenas = [...new Set(rows.map((row) => String(row.arena_id)))].sort(
@@ -236,6 +237,10 @@ export async function getDashboard(filters = {}) {
       recentTopMonsters: recentRanking.topMonsters,
       yesterdayTopDate: baseMeta.maxDate,
       yesterdayTopMonsters,
+      dailyAnomalyReport: buildDailyAnomalyReport(
+        dataset.rows,
+        baseMeta.maxDate,
+      ),
     },
   };
 }

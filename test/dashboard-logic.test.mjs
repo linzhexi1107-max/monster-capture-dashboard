@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   aggregateDailyByMonster,
   aggregateDailyMetrics,
+  buildDailyAnomalyReport,
   buildStaticDashboardPayload,
   buildWeeklyMonsterSeries,
   formatKbt,
@@ -158,4 +159,83 @@ test('builds the static dashboard payload with client-side filters', () => {
   assert.equal(payload.data.length, 1);
   assert.equal(payload.data[0].monster_name, '轰炸鲨');
   assert.equal(payload.meta.yesterdayTopMonsters.length, 2);
+  assert.ok(payload.meta.dailyAnomalyReport);
+});
+
+test('reports stale daily data and stable metric baselines', () => {
+  const dates = [
+    '2026-11-04',
+    '2026-11-05',
+    '2026-11-06',
+    '2026-11-07',
+    '2026-11-08',
+    '2026-11-09',
+    '2026-11-10',
+    '2026-11-11',
+  ];
+  const rows = dates.map((stat_date) => ({
+    stat_date,
+    arena_id: '1',
+    config_cost: 50,
+    config_cost_ratio: 0.5,
+    daily_total_cost: 100,
+    rtp: 1,
+    attack_user_count: 100,
+    killed_user_count: 50,
+    attack_monster_count: 100,
+    killed_monster_count: 40,
+  }));
+
+  const stable = buildDailyAnomalyReport(
+    rows,
+    '2026-11-11',
+    new Date('2026-11-12T01:00:00.000Z'),
+  );
+  assert.equal(stable.severity, 'stable');
+  assert.equal(stable.alerts.length, 0);
+
+  const stale = buildDailyAnomalyReport(
+    rows.filter((row) => row.stat_date <= '2026-11-10'),
+    '2026-11-10',
+    new Date('2026-11-12T01:00:00.000Z'),
+  );
+  assert.equal(stale.severity, 'danger');
+  assert.match(stale.alerts[0].message, /数据未更新至昨日/);
+});
+
+test('builds a daily anomaly conclusion against the recent seven-day baseline', () => {
+  const rows = [];
+  for (let day = 1; day <= 7; day += 1) {
+    rows.push({
+      stat_date: `2026-11-0${day}`,
+      arena_id: '1',
+      config_cost: 100,
+      daily_total_cost: 100,
+      rtp: 1,
+      attack_user_count: 100,
+      killed_user_count: 40,
+      attack_monster_count: 100,
+      killed_monster_count: 50,
+    });
+  }
+  rows.push({
+    stat_date: '2026-11-08',
+    arena_id: '1',
+    config_cost: 200,
+    daily_total_cost: 200,
+    rtp: 1.2,
+    attack_user_count: 100,
+    killed_user_count: 20,
+    attack_monster_count: 100,
+    killed_monster_count: 20,
+  });
+  const report = buildDailyAnomalyReport(
+    rows,
+    '2026-11-08',
+    new Date('2026-11-09T01:00:00.000Z'),
+  );
+  assert.equal(report.date, '2026-11-08');
+  assert.equal(report.severity, 'danger');
+  assert.equal(report.alerts.length, 4);
+  assert.match(report.conclusion, /发现 4 项异常波动/);
 });

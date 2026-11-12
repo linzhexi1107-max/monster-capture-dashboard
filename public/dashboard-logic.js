@@ -48,6 +48,11 @@ function safeNumber(value) {
   return Number.isFinite(number) ? number : 0;
 }
 
+function formatRate(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? `${(number * 100).toFixed(2)}%` : '—';
+}
+
 export function aggregateDailyMetrics(rows) {
   const map = new Map();
   for (const row of rows) {
@@ -363,6 +368,181 @@ export function buildStaticDashboardPayload(snapshot, filters = {}) {
         yesterday,
         3,
       ),
+      dailyAnomalyReport: buildDailyAnomalyReport(rows, yesterday),
     },
   };
+}
+
+function shanghaiDateString(date = new Date()) {
+  const parts = Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Shanghai',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+      .formatToParts(date)
+      .filter((part) => part.type !== 'literal')
+      .map((part) => [part.type, Number(part.value)]),
+  );
+  return `${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}`;
+}
+
+export function buildDailyAnomalyReport(
+  rows,
+  latestDate = null,
+  now = new Date(),
+) {
+  const availableDates = [...new Set(rows.map((row) => row.stat_date))].sort();
+  const date = latestDate || availableDates.at(-1) || null;
+  if (!date) {
+    return {
+      date: null,
+      severity: 'danger',
+      conclusion: '当前快照没有可用数据，请检查数据库刷新任务。',
+      alerts: [],
+    };
+  }
+
+  const historicalDates = availableDates.filter((item) => item < date).slice(-7);
+  const aggregateDay = (targetDate) => {
+    const arenas = new Map();
+    for (const row of rows.filter((item) => item.stat_date === targetDate)) {
+      const arenaId = String(row.arena_id);
+      const current = arenas.get(arenaId) || {
+        arenaId,
+        totalCostByScope: new Map(),
+        configCost: 0,
+        rtpNumerator: 0,
+        attackUsers: 0,
+        killedUsers: 0,
+        attackMonsters: 0,
+        killedMonsters: 0,
+      };
+      current.totalCostByScope.set(
+        `${targetDate}|${arenaId}`,
+        Math.max(
+          current.totalCostByScope.get(`${targetDate}|${arenaId}`) || 0,
+          safeNumber(row.daily_total_cost),
+        ),
+      );
+      const cost = safeNumber(row.config_cost);
+      current.configCost += cost;
+      current.rtpNumerator += cost * safeNumber(row.rtp);
+      current.attackUsers += safeNumber(row.attack_user_count);
+      current.killedUsers += safeNumber(row.killed_user_count);
+      current.attackMonsters += safeNumber(row.attack_monster_count);
+      current.killedMonsters += safeNumber(row.killed_monster_count);
+      arenas.set(arenaId, current);
+    }
+    return new Map(
+      [...arenas.entries()].map(([arenaId, value]) => [
+        arenaId,
+        {
+          arenaId,
+          totalCost: [...value.totalCostByScope.values()].reduce(
+            (sum, item) => sum + item,
+            0,
+          ),
+          rtp: value.configCost
+            ? value.rtpNumerator / value.configCost
+            : 0,
+          userKillRate: value.attackUsers
+            ? value.killedUsers / value.attackUsers
+            : 0,
+          monsterKillRate: value.attackMonsters
+            ? value.killedMonsters / value.attackMonsters
+            : 0,
+        },
+      ]),
+    );
+  };
+
+  const latest = aggregateDay(date);
+  const history = historicalDates.map(aggregateDay);
+  const alerts = [];
+  const pushAlert = (severity, arenaId, metric, message) => {
+    alerts.push({ severity, arenaId, metric, message });
+  };
+  const expectedDate = addDays(shanghaiDateString(now), -1);
+
+  if (date < expectedDate) {
+    pushAlert(
+      'danger',
+      '系统',
+      '数据更新',
+      `数据未更新至昨日：最新数据为 ${date}，应为 ${expectedDate}。`,
+    );
+  }
+
+  for (const [arenaId, current] of latest) {
+    const samples = history
+      .map((day) => day.get(arenaId))
+      .filter(Boolean);
+    if (!samples.length) continue;
+    const average = (key) =>
+      samples.reduce((sum, item) => sum + item[key], 0) / samples.length;
+    const averageCost = average('totalCost');
+    const averageRtp = average('rtp');
+    const averageUserKill = average('userKillRate');
+    const averageMonsterKill = average('monsterKillRate');
+    const costChange = averageCost
+      ? (current.totalCost - averageCost) / averageCost
+      : 0;
+    const rtpChange = current.rtp - averageRtp;
+    const userKillChange = current.userKillRate - averageUserKill;
+    const monsterKillChange =
+      current.monsterKillRate - averageMonsterKill;
+
+    if (Math.abs(costChange) >= 0.3) {
+      pushAlert(
+        Math.abs(costChange) >= 0.5 ? 'danger' : 'warning',
+        arenaId,
+        '当日总消耗价值',
+        `场次 ${arenaId} 当日总消耗价值为 ${formatT(current.totalCost)}，较近 7 日均值${costChange > 0 ? '上升' : '下降'} ${formatRate(Math.abs(costChange))}。`,
+      );
+    }
+    if (Math.abs(rtpChange) >= 0.08) {
+      pushAlert(
+        Math.abs(rtpChange) >= 0.15 ? 'danger' : 'warning',
+        arenaId,
+        'RTP',
+        `场次 ${arenaId} RTP 为 ${formatRate(current.rtp)}，较近 7 日均值${rtpChange > 0 ? '上升' : '下降'} ${formatRate(Math.abs(rtpChange))}。`,
+      );
+    }
+    if (Math.abs(userKillChange) >= 0.1) {
+      pushAlert(
+        Math.abs(userKillChange) >= 0.2 ? 'danger' : 'warning',
+        arenaId,
+        '用户击杀率',
+        `场次 ${arenaId} 用户击杀率为 ${formatRate(current.userKillRate)}，较近 7 日均值${userKillChange > 0 ? '上升' : '下降'} ${formatRate(Math.abs(userKillChange))}。`,
+      );
+    }
+    if (Math.abs(monsterKillChange) >= 0.1) {
+      pushAlert(
+        Math.abs(monsterKillChange) >= 0.2 ? 'danger' : 'warning',
+        arenaId,
+        '怪物击杀率',
+        `场次 ${arenaId} 怪物击杀率为 ${formatRate(current.monsterKillRate)}，较近 7 日均值${monsterKillChange > 0 ? '上升' : '下降'} ${formatRate(Math.abs(monsterKillChange))}。`,
+      );
+    }
+  }
+
+  alerts.sort((left, right) =>
+    left.severity === right.severity
+      ? left.arenaId.localeCompare(right.arenaId, 'zh-CN', { numeric: true })
+      : left.severity === 'danger'
+        ? -1
+        : 1,
+  );
+  const severity = alerts.some((item) => item.severity === 'danger')
+    ? 'danger'
+    : alerts.length
+      ? 'warning'
+      : 'stable';
+  const conclusion = alerts.length
+    ? `${date} 发现 ${alerts.length} 项异常波动，重点关注场次 ${[...new Set(alerts.map((item) => item.arenaId))].join('、')}。`
+    : `${date} 整体运行平稳，未发现明显异常。`;
+
+  return { date, expectedDate, severity, conclusion, alerts };
 }

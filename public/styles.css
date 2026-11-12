@@ -199,6 +199,158 @@ select {
   padding: 54px 0 32px;
 }
 
+.anomaly-panel {
+  margin-bottom: 30px;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-medium);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.anomaly-panel.is-warning {
+  border-left-color: var(--yellow);
+  background: color-mix(in srgb, var(--surface-solid) 88%, var(--yellow) 12%);
+}
+
+.anomaly-panel.is-danger {
+  border-left-color: var(--orange);
+  background: color-mix(in srgb, var(--surface-solid) 86%, var(--orange) 14%);
+}
+
+.anomaly-heading {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.anomaly-status {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.is-warning .anomaly-status {
+  background: #fff1d2;
+  color: #815d0e;
+}
+
+.is-danger .anomaly-status {
+  background: var(--orange-soft);
+  color: var(--orange);
+}
+
+.anomaly-conclusion {
+  max-width: 980px;
+  margin: 13px 0 0;
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.65;
+}
+
+.anomaly-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 24px;
+  margin: 13px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.anomaly-list li {
+  position: relative;
+  padding-left: 14px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.anomaly-list li::before {
+  position: absolute;
+  top: 0.68em;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--yellow);
+  content: "";
+}
+
+.anomaly-list li.is-danger::before {
+  background: var(--orange);
+}
+
+.anomaly-rules {
+  margin: 13px 0 0;
+  padding-top: 11px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.65;
+}
+
+.definition-panel {
+  margin-bottom: 30px;
+  padding: 20px 22px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-medium);
+  background: rgba(255, 255, 252, 0.66);
+}
+
+.definition-note {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.definition-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--line);
+}
+
+.definition-item {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 11px 12px;
+  background: var(--surface-solid);
+}
+
+.definition-item span {
+  color: var(--foreground);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.definition-item code {
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 10px;
+  white-space: normal;
+}
+
+.definition-item.definition-emphasis {
+  background: var(--accent-soft);
+}
+
+.definition-item.definition-emphasis code {
+  color: var(--accent-strong);
+}
+
 .hero {
   display: flex;
   gap: 36px;
@@ -1263,6 +1415,10 @@ td:last-child {
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .definition-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .charts-grid {
     grid-template-columns: 1fr;
   }
@@ -1302,6 +1458,18 @@ td:last-child {
     display: block;
   }
 
+  .anomaly-panel {
+    padding: 18px;
+  }
+
+  .anomaly-conclusion {
+    font-size: 14px;
+  }
+
+  .anomaly-list {
+    grid-template-columns: 1fr;
+  }
+
   .hero-description {
     font-size: 14px;
   }
@@ -1319,6 +1487,14 @@ td:last-child {
 
   .filter-panel {
     padding: 19px;
+  }
+
+  .definition-panel {
+    padding: 17px;
+  }
+
+  .definition-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .filter-grid {
@@ -1416,6 +1592,10 @@ td:last-child {
     grid-template-columns: 1fr;
   }
 
+  .definition-grid {
+    grid-template-columns: 1fr;
+  }
+
   .metric-primary {
     grid-column: auto;
   }
@@ -1487,6 +1667,11 @@ td:last-child {
     border-color: #564426;
     background: #2b2418;
     color: #e0c37e;
+  }
+
+  .is-warning .anomaly-status {
+    background: #3c3018;
+    color: #e6c16a;
   }
 
   td {
