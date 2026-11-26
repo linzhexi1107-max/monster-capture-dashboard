@@ -197,7 +197,6 @@ function initializeFilters(meta) {
 
   const urlParams = new URLSearchParams(window.location.search);
   const urlStart = urlParams.get('start_date');
-  const urlEnd = urlParams.get('end_date');
   const sevenDayStart = meta.maxDate ? addDays(meta.maxDate, -6) : '';
   const defaultStart =
     sevenDayStart && meta.minDate && sevenDayStart < meta.minDate
@@ -205,8 +204,7 @@ function initializeFilters(meta) {
       : sevenDayStart;
   elements.startDate.value =
     urlStart && meta.minDate && urlStart >= meta.minDate ? urlStart : defaultStart;
-  elements.endDate.value =
-    urlEnd && meta.maxDate && urlEnd <= meta.maxDate ? urlEnd : meta.maxDate || '';
+  elements.endDate.value = meta.maxDate || '';
   elements.startDate.min = meta.minDate || '';
   elements.startDate.max = meta.maxDate || '';
   elements.endDate.min = meta.minDate || '';
@@ -242,9 +240,13 @@ function updateUrl(params) {
 
 async function loadStaticSnapshot() {
   if (!staticSnapshotPromise) {
-    staticSnapshotPromise = fetch('./data/dashboard-data.json', {
-      headers: { Accept: 'application/json' },
-    }).then(async (response) => {
+    staticSnapshotPromise = fetch(
+      `./data/dashboard-data.json?cache=${Date.now()}`,
+      {
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      },
+    ).then(async (response) => {
       if (!response.ok) {
         throw new Error(`数据文件加载失败（${response.status}）`);
       }
