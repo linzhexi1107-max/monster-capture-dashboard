@@ -17,6 +17,16 @@ const impactCss = `
   box-shadow: var(--shadow);
 }
 .impact-heading { align-items: center; }
+.impact-scope { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.impact-scope-tag {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
 .impact-period {
   padding: 6px 12px;
   border: 1px solid var(--line-strong);
@@ -242,7 +252,10 @@ function renderPanel(payload) {
         '<p class="section-kicker">IMMUNE ADJUSTMENT IMPACT</p>' +
         '<h2 id="impactTitle">免伤调整影响分析</h2>' +
       '</div>' +
-      '<span class="impact-period">' + escapeHtml(meta.periodStart) + ' ~ ' + escapeHtml(meta.periodEnd) + '</span>' +
+      '<div class="impact-scope">' +
+        (meta.platform ? '<span class="impact-scope-tag">' + escapeHtml(meta.platform) + '</span>' : '') +
+        '<span class="impact-period">' + escapeHtml(meta.periodStart) + ' ~ ' + escapeHtml(meta.periodEnd) + '</span>' +
+      '</div>' +
     '</div>' +
     '<p class="impact-conclusion" id="impactConclusion">' + conclusionText(summary, events) + '</p>' +
     '<div class="impact-summary">' +
