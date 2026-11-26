@@ -253,7 +253,7 @@ function renderPanel(payload) {
         '<h2 id="impactTitle">免伤调整影响分析</h2>' +
       '</div>' +
       '<div class="impact-scope">' +
-        (meta.platform ? '<span class="impact-scope-tag">' + escapeHtml(meta.platform) + '</span>' : '') +
+        (meta.platform ? '<span class="impact-scope-tag">' + escapeHtml([meta.platform, meta.games].filter(Boolean).join(' · ')) + '</span>' : '') +
         '<span class="impact-period">' + escapeHtml(meta.periodStart) + ' ~ ' + escapeHtml(meta.periodEnd) + '</span>' +
       '</div>' +
     '</div>' +
