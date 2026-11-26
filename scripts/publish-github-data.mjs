@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
 const owner = 'linzhexi1107-max';
@@ -38,6 +39,17 @@ async function api(endpoint, options = {}) {
 
 const current = await api(`/repos/${owner}/${repo}/contents/${relativePath}`);
 const content = await fs.readFile(filePath);
+const blobHash = crypto
+  .createHash('sha1')
+  .update(`blob ${content.length}\0`)
+  .update(content)
+  .digest('hex');
+
+if (blobHash === current.sha) {
+  console.log(`${relativePath} is unchanged; skipping GitHub commit.`);
+  process.exit(0);
+}
+
 await api(`/repos/${owner}/${repo}/contents/${relativePath}`, {
   method: 'PUT',
   body: {
