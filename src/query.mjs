@@ -20,11 +20,13 @@ WITH config_mapping AS (
     UNION ALL SELECT 73,   '波塞冬'
     UNION ALL SELECT 75,   '霸王龙'
     UNION ALL SELECT 76,   '死亡之翼'
+    UNION ALL SELECT 78,   '塞特'
     UNION ALL SELECT 74,   '哪吒'
     UNION ALL SELECT 7777, '嗨鲨'
     UNION ALL SELECT 9,    '灯笼鱼'
     UNION ALL SELECT 54,   '鸿运当头鱼'
     UNION ALL SELECT 55,   '海鳗'
+    UNION ALL SELECT 78,   '塞特'
 ),
 attack_daily_config AS (
     SELECT
