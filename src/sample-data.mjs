@@ -18,11 +18,13 @@ const MONSTERS = [
   { configId: '73', name: '波塞冬' },
   { configId: '75', name: '霸王龙' },
   { configId: '76', name: '死亡之翼' },
+  { configId: '78', name: '塞特' },
   { configId: '74', name: '哪吒' },
   { configId: '7777', name: '嗨鲨' },
   { configId: '9', name: '灯笼鱼' },
   { configId: '54', name: '鸿运当头鱼' },
   { configId: '55', name: '海鳗' },
+  { configId: '78', name: '塞特' },
 ];
 
 const ARENAS = ['1001', '1002', '1003'];
